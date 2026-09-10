@@ -9,7 +9,7 @@ function logic() {
   assert.ok(match, 'expected a marked logic block in the application');
   const context = {};
   vm.createContext(context);
-  vm.runInContext(`${match[1]}\nthis.api = { cellFromPoint, cellKey, parseCellKey, createDefaultState, fitBackground, paintCell, undo, redo, makeProject, validateProject, makeGameData };`, context);
+  vm.runInContext(`${match[1]}\nthis.api = { cellFromPoint, cellKey, parseCellKey, createDefaultState, fitBackground, guidePositions, nextExportName, paintCell, undo, redo, makeProject, validateProject, makeGameData };`, context);
   return context.api;
 }
 
@@ -55,4 +55,17 @@ test('game data exports category cells as numeric coordinate pairs', () => {
 test('rejects project files with an unsupported version', () => {
   const { validateProject } = logic();
   assert.throws(() => validateProject({ version: 99 }), /Unsupported project version/);
+});
+
+test('places bumper and flipper alignment guides from the right bumper width', () => {
+  const { guidePositions } = logic();
+  equalData(guidePositions(12), { bumper: 148, flippers: 74 });
+});
+
+test('increments export versions independently by file type', () => {
+  const { createDefaultState, nextExportName } = logic();
+  const state = createDefaultState();
+  assert.equal(nextExportName(state, 'project'), 'tilt-tender-project-v1.json');
+  assert.equal(nextExportName(state, 'project'), 'tilt-tender-project-v2.json');
+  assert.equal(nextExportName(state, 'png'), 'tilt-tender-table-map-v1.png');
 });
