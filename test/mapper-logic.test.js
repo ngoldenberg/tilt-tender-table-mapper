@@ -9,7 +9,7 @@ function logic() {
   assert.ok(match, 'expected a marked logic block in the application');
   const context = {};
   vm.createContext(context);
-  vm.runInContext(`${match[1]}\nthis.api = { cellFromPoint, cellKey, parseCellKey, createDefaultState, fitBackground, guidePositions, nextExportName, paintCell, undo, redo, makeProject, validateProject, makeGameData };`, context);
+  vm.runInContext(`${match[1]}\nthis.api = { cellFromPoint, cellKey, parseCellKey, createDefaultState, fitBackground, guidePositions, safeProjectName, nextExportName, paintCell, undo, redo, makeProject, validateProject, makeGameData };`, context);
   return context.api;
 }
 
@@ -67,5 +67,13 @@ test('increments export versions independently by file type', () => {
   const state = createDefaultState();
   assert.equal(nextExportName(state, 'project'), 'tilt-tender-project-v1.json');
   assert.equal(nextExportName(state, 'project'), 'tilt-tender-project-v2.json');
-  assert.equal(nextExportName(state, 'png'), 'tilt-tender-table-map-v1.png');
+  assert.equal(nextExportName(state, 'png'), 'tilt-tender-map-v1.png');
+});
+
+test('uses a safe configured project name in export filenames', () => {
+  const { createDefaultState, safeProjectName, nextExportName } = logic();
+  const state = createDefaultState();
+  state.projectName = 'My Table! 2026';
+  assert.equal(safeProjectName(state.projectName), 'my-table-2026');
+  assert.equal(nextExportName(state, 'png'), 'my-table-2026-map-v1.png');
 });
