@@ -77,3 +77,12 @@ test('uses a safe configured project name in export filenames', () => {
   assert.equal(safeProjectName(state.projectName), 'my-table-2026');
   assert.equal(nextExportName(state, 'png'), 'my-table-2026-map-v1.png');
 });
+
+test('includes hole with scoop and toy in new project data', () => {
+  const { createDefaultState, makeGameData } = logic();
+  const state = createDefaultState();
+  assert.ok(Object.hasOwn(state.parts, 'holeWithScoop'));
+  assert.ok(Object.hasOwn(state.parts, 'toy'));
+  equalData(makeGameData(state).parts.holeWithScoop, []);
+  equalData(makeGameData(state).parts.toy, []);
+});
