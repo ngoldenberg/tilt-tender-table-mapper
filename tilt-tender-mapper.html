@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tilt &amp; Tender — Table Mapper</title>
+  <style>
+    :root { --ink:#172631; --paper:#e8f0ee; --panel:#f8fbfa; --line:#b8ccc6; --muted:#62756f; --accent:#d35e35; --navy:#17435a; }
+    * { box-sizing:border-box; } body { margin:0; min-width:320px; color:var(--ink); background:linear-gradient(135deg,#dbe7e4,#c7dbd4); font-family:Georgia, 'Times New Roman', serif; }
+    .shell { max-width:1440px; margin:auto; min-height:100vh; padding:clamp(18px,4vw,52px); }
+    header { display:flex; align-items:end; justify-content:space-between; gap:20px; border-bottom:3px solid var(--ink); padding:0 0 16px; margin-bottom:22px; }
+    h1 { margin:0; font-size:clamp(2rem,5vw,4.5rem); letter-spacing:-.065em; line-height:.85; } header p { max-width:32ch; margin:0; font:600 .8rem/1.25 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--muted); }
+    .workspace { display:grid; grid-template-columns:minmax(235px,310px) minmax(0,1fr) minmax(210px,280px); gap:20px; align-items:start; }
+    .panel { background:var(--panel); border:1px solid var(--line); box-shadow:5px 5px 0 rgba(23,67,90,.13); padding:18px; }
+    fieldset { border:0; padding:0; margin:0 0 22px; } legend { padding:0; margin-bottom:10px; color:var(--navy); font:700 .72rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:.06em; }
+    label { display:grid; gap:5px; margin:8px 0; font-size:.9rem; } label.row { grid-template-columns:1fr auto; align-items:center; } input, select, button { font:inherit; } input[type=number], select { border:1px solid var(--line); background:#fff; padding:7px; color:var(--ink); } input[type=range] { width:100%; accent-color:var(--accent); } input[type=file] { width:100%; font-size:.78rem; }
+    button { border:1px solid var(--ink); border-radius:0; cursor:pointer; padding:8px 10px; color:var(--ink); background:#fff; font-weight:700; } button:hover { background:#d9e9e4; } button:active { transform:translate(1px,1px); } button:disabled { opacity:.45; cursor:not-allowed; } button.primary { color:#fff; background:var(--navy); } button.alert { color:#fff; background:var(--accent); }
+    .button-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; } .button-grid .wide { grid-column:span 2; }
+    .stage-panel { display:grid; place-items:center; min-height:620px; padding:clamp(16px,3vw,38px); background:#204d5d; border:8px solid #d6b56f; outline:1px solid #17323b; box-shadow:inset 0 0 0 3px rgba(255,255,255,.24), 6px 6px 0 rgba(23,38,49,.2); }
+    canvas { max-width:100%; height:auto; touch-action:none; image-rendering:pixelated; background-color:#e7e7e1; background-image:linear-gradient(45deg,#d4d9d5 25%,transparent 25%),linear-gradient(-45deg,#d4d9d5 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d4d9d5 75%),linear-gradient(-45deg,transparent 75%,#d4d9d5 75%); background-size:12px 12px; background-position:0 0,0 6px,6px -6px,-6px 0; box-shadow:0 1px 15px rgba(0,0,0,.35); }
+    .stage-note { margin:14px 0 0; color:#edf5f1; text-align:center; font:600 .72rem/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .swatches { display:grid; grid-template-columns:1fr 1fr; gap:7px; } .category { display:grid; grid-template-columns:18px 1fr; gap:7px; align-items:center; padding:7px; text-align:left; font-size:.82rem; } .category.selected { outline:3px solid var(--accent); outline-offset:1px; background:#fff4ee; } .dot { width:14px; height:14px; border:1px solid var(--ink); }
+    .status { margin:12px 0; padding:10px; background:#e2ece8; border-left:4px solid var(--navy); font:600 .78rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; } .status strong { color:var(--navy); }
+    .mode { width:100%; margin-bottom:8px; } .mode.active { color:#fff; background:var(--accent); }
+    footer { margin-top:28px; color:var(--muted); font-size:.8rem; text-align:center; }
+    :focus-visible { outline:3px solid #f0a642; outline-offset:2px; }
+    @media (max-width:1050px) { .workspace { grid-template-columns:minmax(220px,1fr) minmax(0,1.6fr); } .right { grid-column:span 2; display:grid; grid-template-columns:1fr 1fr; gap:18px; } .right fieldset { margin:0; } }
+    @media (max-width:680px) { .shell { padding:18px 13px; } header { align-items:start; flex-direction:column; } .workspace { display:block; } .panel { margin-bottom:18px; } .right { display:block; } .right fieldset { margin-bottom:22px; } .stage-panel { min-height:0; } }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; transition:none !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header><div><h1>Tilt &amp; Tender</h1><p>Table mapper / 160 × 240 game space</p></div><p>Align a real table. Mark the playable logic. Keep the coordinates honest.</p></header>
+    <section class="workspace" aria-label="Table mapping workspace">
+      <aside class="panel">
+        <fieldset><legend>REFERENCE IMAGE</legend>
+          <label>Choose local image <input id="image-input" type="file" accept="image/*"></label>
+          <label class="row">X offset <input id="bg-x" type="number" step="0.5" value="0"></label>
+          <label class="row">Y offset <input id="bg-y" type="number" step="0.5" value="0"></label>
+          <label class="row">Scale <input id="bg-scale" type="number" min="1" max="3000" step="1" value="100">%</label>
+          <label class="row">Rotation <input id="bg-rotation" type="number" min="-180" max="180" step="1" value="0">°</label>
+          <label>Opacity <input id="bg-opacity" type="range" min="0" max="100" value="70"></label>
+          <div class="button-grid"><button id="fit-image" type="button">Fit to frame</button><button id="reset-image" type="button">Reset</button></div>
+        </fieldset>
+        <fieldset><legend>GRID &amp; VIEW</legend>
+          <label>Cell size <select id="cell-size"><option value="1">1 px · 160 × 240</option><option value="2" selected>2 px · 80 × 120</option><option value="4">4 px · 40 × 60</option></select></label>
+          <label>Display zoom <select id="zoom"><option value="2">2×</option><option value="3">3×</option><option value="4" selected>4×</option><option value="5">5×</option></select></label>
+        </fieldset>
+      </aside>
+      <section class="stage-panel"><canvas id="mapper" aria-label="Table map canvas" width="640" height="960"></canvas><p class="stage-note">Left-drag paints · Right-drag erases · Image alignment mode drags the reference</p></section>
+      <aside class="panel right">
+        <fieldset><legend>PART PALETTE</legend><div id="categories" class="swatches" aria-label="Part categories"></div></fieldset>
+        <fieldset><legend>EDITING</legend>
+          <button id="align-mode" class="mode" type="button" aria-pressed="false">Align image</button>
+          <button id="paint-mode" class="mode active" type="button" aria-pressed="true">Paint parts</button>
+          <div id="status" class="status"><strong>Selected:</strong> Bumpers<br><strong>Cell:</strong> —</div>
+          <div class="button-grid"><button id="undo" type="button">Undo</button><button id="redo" type="button">Redo</button><button id="clear-category" type="button">Clear category</button><button id="clear-all" class="alert" type="button">Clear all</button></div>
+        </fieldset>
+        <fieldset><legend>SAVE &amp; EXPORT</legend>
+          <div class="button-grid"><button id="save-project" class="primary wide" type="button">Export project</button><label class="wide"><span class="sr-only">Load saved project</span><input id="load-project" type="file" accept="application/json,.json"></label><button id="export-game" type="button">Export game data</button><button id="export-png" type="button">Export PNG</button></div>
+        </fieldset>
+      </aside>
+    </section>
+    <footer>Project files embed your reference image. Nothing leaves this browser.</footer>
+  </main>
+  <script>
+  /* LOGIC_START */
+  const CANVAS_WIDTH = 160;
+  const CANVAS_HEIGHT = 240;
+  const PROJECT_VERSION = 1;
+  const DEFAULT_CATEGORIES = [
+    { id: 'walls', label: 'Walls', color: '#e04b4b' }, { id: 'bumpers', label: 'Bumpers', color: '#f2ad35' },
+    { id: 'targets', label: 'Targets', color: '#6eae55' }, { id: 'rails', label: 'Rails', color: '#3f8fbe' },
+    { id: 'flippers', label: 'Flippers', color: '#a968c7' }, { id: 'ramps', label: 'Ramps', color: '#4ba6a1' },
+    { id: 'other', label: 'Other', color: '#6e7480' }
+  ];
+  function cellKey(x, y) { return `${x},${y}`; }
+  function parseCellKey(key) { const [x, y] = key.split(',').map(Number); return { x, y }; }
+  function cellFromPoint(pointX, pointY, cellSize) {
+    if (pointX < 0 || pointY < 0 || pointX >= CANVAS_WIDTH || pointY >= CANVAS_HEIGHT) return null;
+    return { x: Math.floor(pointX / cellSize), y: Math.floor(pointY / cellSize) };
+  }
+  function createDefaultState() {
+    const categories = DEFAULT_CATEGORIES.map(category => ({ ...category }));
+    return { canvas:{ width:CANVAS_WIDTH, height:CANVAS_HEIGHT, cellSize:2 }, viewport:{ zoom:4 }, background:{ imageData:null, image:null, x:0, y:0, scale:1, rotation:0, opacity:.7 }, categories, selected:'bumpers', parts:Object.fromEntries(categories.map(c => [c.id, new Set()])), history:[], future:[] };
+  }
+  function snapshot(state) { return Object.fromEntries(Object.entries(state.parts).map(([id, cells]) => [id, [...cells]])); }
+  function restore(state, values) { Object.keys(state.parts).forEach(id => { state.parts[id] = new Set(values[id] || []); }); }
+  function remember(state) { state.history.push(snapshot(state)); if (state.history.length > 80) state.history.shift(); state.future = []; }
+  function paintCell(state, category, cell, shouldPaint, record = true) {
+    if (!cell || !state.parts[category]) return false;
+    const key = cellKey(cell.x, cell.y), bucket = state.parts[category];
+    if (shouldPaint ? bucket.has(key) : !bucket.has(key)) return false;
+    if (record) remember(state); shouldPaint ? bucket.add(key) : bucket.delete(key); return true;
+  }
+  function undo(state) { if (!state.history.length) return false; state.future.push(snapshot(state)); restore(state, state.history.pop()); return true; }
+  function redo(state) { if (!state.future.length) return false; state.history.push(snapshot(state)); restore(state, state.future.pop()); return true; }
+  function fitBackground(imageWidth, imageHeight) { return { x:0, y:0, scale:Math.min(CANVAS_WIDTH / imageWidth, CANVAS_HEIGHT / imageHeight) }; }
+  function makeProject(state) {
+    return { version:PROJECT_VERSION, canvas:{ ...state.canvas }, viewport:{ ...state.viewport }, background:{ image:state.background.imageData, x:state.background.x, y:state.background.y, scale:state.background.scale, rotation:state.background.rotation, opacity:state.background.opacity }, palette:Object.fromEntries(state.categories.map(c => [c.id, c.color])), categories:state.categories.map(c => c.id), parts:Object.fromEntries(Object.entries(state.parts).map(([id, cells]) => [id, [...cells].map(parseCellKey)])) };
+  }
+  function validateProject(project) {
+    if (!project || project.version !== PROJECT_VERSION) throw new Error('Unsupported project version.');
+    if (!project.canvas || project.canvas.width !== CANVAS_WIDTH || project.canvas.height !== CANVAS_HEIGHT || ![1,2,4].includes(project.canvas.cellSize)) throw new Error('Project canvas is invalid.');
+    if (!project.background || !Number.isFinite(project.background.x) || !Number.isFinite(project.background.y) || !Number.isFinite(project.background.scale) || !Number.isFinite(project.background.rotation) || !Number.isFinite(project.background.opacity)) throw new Error('Project background is invalid.');
+    if (project.background.image && !String(project.background.image).startsWith('data:image/')) throw new Error('Project image must be embedded.');
+    if (!project.parts || !project.palette || !Array.isArray(project.categories)) throw new Error('Project parts are invalid.');
+    for (const id of project.categories) { if (!Array.isArray(project.parts[id]) || typeof project.palette[id] !== 'string') throw new Error(`Project category ${id} is invalid.`); }
+    return project;
+  }
+  function makeGameData(state) { return { width:CANVAS_WIDTH, height:CANVAS_HEIGHT, cellSize:state.canvas.cellSize, parts:Object.fromEntries(Object.entries(state.parts).map(([id, cells]) => [id, [...cells].map(parseCellKey).sort((a,b) => a.y - b.y || a.x - b.x).map(({x,y}) => [x,y])])) }; }
+  /* LOGIC_END */
+
+  const state = createDefaultState();
+  const canvas = document.querySelector('#mapper'); const ctx = canvas.getContext('2d');
+  const ui = Object.fromEntries(['image-input','bg-x','bg-y','bg-scale','bg-rotation','bg-opacity','fit-image','reset-image','cell-size','zoom','categories','align-mode','paint-mode','status','undo','redo','clear-category','clear-all','save-project','load-project','export-game','export-png'].map(id => [id, document.getElementById(id)]));
+  let mode = 'paint', pointer = null, strokeChanged = false, dragOrigin = null;
+  const number = value => Number(value);
+  function selectedCategory() { return state.categories.find(c => c.id === state.selected); }
+  function setCanvasSize() { const px = state.viewport.zoom; canvas.width = CANVAS_WIDTH * px; canvas.height = CANVAS_HEIGHT * px; canvas.style.width = `${CANVAS_WIDTH * px}px`; canvas.style.height = `${CANVAS_HEIGHT * px}px`; }
+  function drawBackground(target) { const bg = state.background; if (!bg.image) return; target.save(); target.globalAlpha = bg.opacity; target.translate(CANVAS_WIDTH/2 + bg.x, CANVAS_HEIGHT/2 + bg.y); target.rotate(bg.rotation * Math.PI / 180); target.scale(bg.scale, bg.scale); target.drawImage(bg.image, -bg.image.width/2, -bg.image.height/2); target.restore(); }
+  function drawGrid(target) { const size = state.canvas.cellSize; target.save(); target.strokeStyle = 'rgba(18,35,39,.5)'; target.lineWidth = .34; for (let x=0; x<=CANVAS_WIDTH; x+=size) { target.beginPath(); target.moveTo(x,0); target.lineTo(x,CANVAS_HEIGHT); target.stroke(); } for (let y=0; y<=CANVAS_HEIGHT; y+=size) { target.beginPath(); target.moveTo(0,y); target.lineTo(CANVAS_WIDTH,y); target.stroke(); } target.restore(); }
+  function drawParts(target) { const size = state.canvas.cellSize; target.save(); target.globalAlpha = .55; for (const category of state.categories) { target.fillStyle = category.color; for (const key of state.parts[category.id]) { const {x,y} = parseCellKey(key); target.fillRect(x*size, y*size, size, size); } } target.restore(); }
+  function renderTo(target) { target.save(); target.clearRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT); target.fillStyle = '#f5f4ed'; target.fillRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT); drawBackground(target); drawGrid(target); drawParts(target); target.restore(); }
+  function render() { setCanvasSize(); ctx.setTransform(state.viewport.zoom,0,0,state.viewport.zoom,0,0); renderTo(ctx); updateUi(); }
+  function updateUi() { ui['bg-x'].value = state.background.x; ui['bg-y'].value = state.background.y; ui['bg-scale'].value = Math.round(state.background.scale * 100); ui['bg-rotation'].value = state.background.rotation; ui['bg-opacity'].value = Math.round(state.background.opacity * 100); ui['cell-size'].value = state.canvas.cellSize; ui.zoom.value = state.viewport.zoom; ui.status.innerHTML = `<strong>Selected:</strong> ${selectedCategory().label}<br><strong>Cell:</strong> ${pointer ? `X=${pointer.x} Y=${pointer.y} · px ${pointer.x * state.canvas.cellSize},${pointer.y * state.canvas.cellSize}` : '—'}`; ui.undo.disabled = !state.history.length; ui.redo.disabled = !state.future.length; ui['align-mode'].classList.toggle('active', mode==='align'); ui['paint-mode'].classList.toggle('active', mode==='paint'); ui['align-mode'].setAttribute('aria-pressed', mode==='align'); ui['paint-mode'].setAttribute('aria-pressed', mode==='paint'); document.querySelectorAll('.category').forEach(button => button.classList.toggle('selected', button.dataset.id===state.selected)); }
+  function renderCategories() { ui.categories.innerHTML = ''; for (const category of state.categories) { const button = document.createElement('button'); button.type='button'; button.className='category'; button.dataset.id=category.id; button.innerHTML=`<span class="dot" style="background:${category.color}"></span><span>${category.label}</span>`; button.addEventListener('click', () => { state.selected=category.id; render(); }); const picker=document.createElement('input'); picker.type='color'; picker.value=category.color; picker.title=`Change ${category.label} colour`; picker.addEventListener('input', event => { category.color=event.target.value; button.querySelector('.dot').style.background=category.color; render(); }); const holder=document.createElement('div'); holder.append(button,picker); holder.style.display='grid'; holder.style.gridTemplateColumns='1fr 30px'; holder.style.gap='3px'; ui.categories.append(holder); } }
+  function pointFromEvent(event) { const box = canvas.getBoundingClientRect(); return { x:(event.clientX-box.left) * CANVAS_WIDTH/box.width, y:(event.clientY-box.top) * CANVAS_HEIGHT/box.height }; }
+  function handlePaint(event, paint) { const cell = cellFromPoint(pointFromEvent(event).x, pointFromEvent(event).y, state.canvas.cellSize); pointer = cell; if (!cell) return; if (!strokeChanged) { remember(state); strokeChanged = true; } const bucket=state.parts[state.selected], key=cellKey(cell.x,cell.y); paint ? bucket.add(key) : bucket.delete(key); render(); }
+  function syncBackground() { state.background.x=number(ui['bg-x'].value); state.background.y=number(ui['bg-y'].value); state.background.scale=number(ui['bg-scale'].value)/100; state.background.rotation=number(ui['bg-rotation'].value); state.background.opacity=number(ui['bg-opacity'].value)/100; render(); }
+  function download(name, blob) { const url=URL.createObjectURL(blob), link=document.createElement('a'); link.href=url; link.download=name; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); }
+  function decodeImage(data) { return new Promise((resolve,reject)=>{ if (!data) return resolve(null); const image=new Image(); image.onload=()=>resolve(image); image.onerror=()=>reject(new Error('The embedded image could not be opened.')); image.src=data; }); }
+  async function installProject(project) { validateProject(project); const image = await decodeImage(project.background.image); const next = createDefaultState(); next.canvas={...project.canvas}; next.viewport.zoom=[2,3,4,5].includes(project.viewport?.zoom) ? project.viewport.zoom : 4; next.background={ imageData:project.background.image || null, image, x:project.background.x, y:project.background.y, scale:project.background.scale, rotation:project.background.rotation, opacity:project.background.opacity }; next.categories=project.categories.map(id=>({id,label:DEFAULT_CATEGORIES.find(c=>c.id===id)?.label || id,color:project.palette[id]})); next.parts=Object.fromEntries(next.categories.map(c=>[c.id,new Set(project.parts[c.id].map(cell=>cellKey(cell.x,cell.y)))])); state.canvas=next.canvas; state.viewport=next.viewport; state.background=next.background; state.categories=next.categories; state.parts=next.parts; state.selected=next.categories[0].id; state.history=[]; state.future=[]; renderCategories(); render(); }
+  ui['image-input'].addEventListener('change', event => { const file=event.target.files[0]; if (!file) return; const reader=new FileReader(); reader.onload=async ()=>{ try { const image=await decodeImage(reader.result); state.background.imageData=reader.result; state.background.image=image; Object.assign(state.background,fitBackground(image.width,image.height)); render(); } catch(error) { alert(error.message); } }; reader.readAsDataURL(file); });
+  ['bg-x','bg-y','bg-scale','bg-rotation','bg-opacity'].forEach(id=>ui[id].addEventListener('input',syncBackground));
+  ui['fit-image'].addEventListener('click',()=>{ if(state.background.image) Object.assign(state.background,fitBackground(state.background.image.width,state.background.image.height)); render(); });
+  ui['reset-image'].addEventListener('click',()=>{ Object.assign(state.background,{x:0,y:0,scale:1,rotation:0,opacity:.7}); render(); });
+  ui['cell-size'].addEventListener('change',()=>{ state.canvas.cellSize=number(ui['cell-size'].value); state.history=[]; state.future=[]; for(const id of Object.keys(state.parts)) state.parts[id].clear(); render(); });
+  ui.zoom.addEventListener('change',()=>{ state.viewport.zoom=number(ui.zoom.value); render(); });
+  ui['align-mode'].addEventListener('click',()=>{ mode='align'; render(); }); ui['paint-mode'].addEventListener('click',()=>{ mode='paint'; render(); });
+  canvas.addEventListener('contextmenu',event=>event.preventDefault());
+  canvas.addEventListener('pointerdown',event=>{ canvas.setPointerCapture(event.pointerId); if(mode==='align'){ if(state.background.image) dragOrigin={point:pointFromEvent(event),x:state.background.x,y:state.background.y}; return; } strokeChanged=false; handlePaint(event,event.button!==2); });
+  canvas.addEventListener('pointermove',event=>{ const point=pointFromEvent(event); pointer=cellFromPoint(point.x,point.y,state.canvas.cellSize); if(dragOrigin && event.buttons){ state.background.x=dragOrigin.x+point.x-dragOrigin.point.x; state.background.y=dragOrigin.y+point.y-dragOrigin.point.y; } else if(event.buttons && mode==='paint') handlePaint(event,(event.buttons&2)===0); else render(); });
+  canvas.addEventListener('pointerup',()=>{ dragOrigin=null; strokeChanged=false; render(); }); canvas.addEventListener('pointerleave',()=>{ if(!dragOrigin) {pointer=null;render();} });
+  ui.undo.addEventListener('click',()=>{undo(state);render();}); ui.redo.addEventListener('click',()=>{redo(state);render();});
+  ui['clear-category'].addEventListener('click',()=>{ if(!state.parts[state.selected].size) return; remember(state); state.parts[state.selected].clear(); render(); });
+  ui['clear-all'].addEventListener('click',()=>{ if(confirm('Clear every marked cell? This can be undone.')) { remember(state); Object.values(state.parts).forEach(cells=>cells.clear()); render(); } });
+  ui['save-project'].addEventListener('click',()=>download('tilt-tender-project.json',new Blob([JSON.stringify(makeProject(state),null,2)],{type:'application/json'})));
+  ui['export-game'].addEventListener('click',()=>download('tilt-tender-game-data.json',new Blob([JSON.stringify(makeGameData(state),null,2)],{type:'application/json'})));
+  ui['export-png'].addEventListener('click',()=>{const out=document.createElement('canvas');out.width=CANVAS_WIDTH;out.height=CANVAS_HEIGHT;renderTo(out.getContext('2d'));out.toBlob(blob=>download('tilt-tender-table-map.png',blob),'image/png');});
+  ui['load-project'].addEventListener('change',event=>{const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=async()=>{try{await installProject(JSON.parse(reader.result));}catch(error){alert(`Could not load project: ${error.message}`);}};reader.readAsText(file);event.target.value='';});
+  renderCategories(); render();
+  </script>
+</body>
+</html>
