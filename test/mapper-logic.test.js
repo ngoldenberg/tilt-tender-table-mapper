@@ -9,7 +9,7 @@ function logic() {
   assert.ok(match, 'expected a marked logic block in the application');
   const context = {};
   vm.createContext(context);
-  vm.runInContext(`${match[1]}\nthis.api = { cellFromPoint, cellKey, parseCellKey, createDefaultState, fitBackground, guidePositions, safeProjectName, nextExportName, paintCell, undo, redo, makeProject, validateProject, makeGameData };`, context);
+  vm.runInContext(`${match[1]}\nthis.api = { cellFromPoint, cellKey, parseCellKey, createDefaultState, fitBackground, migrateBackground, guidePositions, safeProjectName, nextExportName, paintCell, undo, redo, makeProject, validateProject, makeGameData };`, context);
   return context.api;
 }
 
@@ -30,6 +30,31 @@ test('keeps cell keys lossless', () => {
 test('creates a 160 by 240 project with a 2px grid by default', () => {
   const { createDefaultState, makeProject } = logic();
   equalData(makeProject(createDefaultState()).canvas, { width: 160, height: 240, cellSize: 2 });
+});
+
+test('saves a default horizontal image scale of 100 percent', () => {
+  const { createDefaultState, makeProject } = logic();
+  assert.equal(makeProject(createDefaultState()).background.widthScale, 1);
+});
+
+test('saves a default vertical image scale of 100 percent', () => {
+  const { createDefaultState, makeProject } = logic();
+  assert.equal(makeProject(createDefaultState()).background.heightScale, 1);
+});
+
+test('migrates an old project with a single scale field to width and height scale', () => {
+  const { migrateBackground } = logic();
+  equalData(migrateBackground({ x: 1, y: 2, scale: 0.5, rotation: 0, opacity: 0.7 }), {
+    x: 1, y: 2, widthScale: 0.5, heightScale: 0.5, rotation: 0, opacity: 0.7
+  });
+});
+
+test('leaves a project that already has width and height scale unchanged', () => {
+  const { migrateBackground } = logic();
+  equalData(
+    migrateBackground({ x: 0, y: 0, widthScale: 0.4, heightScale: 0.6, rotation: 0, opacity: 1 }),
+    { x: 0, y: 0, widthScale: 0.4, heightScale: 0.6, rotation: 0, opacity: 1 }
+  );
 });
 
 test('fits a 1200 by 1800 image proportionally inside the table', () => {
