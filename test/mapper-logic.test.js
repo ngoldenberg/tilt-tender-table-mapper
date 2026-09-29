@@ -9,7 +9,7 @@ function logic() {
   assert.ok(match, 'expected a marked logic block in the application');
   const context = {};
   vm.createContext(context);
-  vm.runInContext(`${match[1]}\nthis.api = { cellFromPoint, cellKey, parseCellKey, createDefaultState, fitBackground, migrateBackground, guidePositions, safeProjectName, nextExportName, paintCell, undo, redo, makeProject, validateProject, makeGameData };`, context);
+  vm.runInContext(`${match[1]}\nthis.api = { cellFromPoint, cellKey, parseCellKey, createDefaultState, fitBackground, migrateBackground, guidePositions, safeProjectName, nextExportName, paintCell, floodFill, undo, redo, makeProject, validateProject, makeGameData };`, context);
   return context.api;
 }
 
@@ -110,4 +110,48 @@ test('includes hole with scoop and toy in new project data', () => {
   assert.ok(Object.hasOwn(state.parts, 'toy'));
   equalData(makeGameData(state).parts.holeWithScoop, []);
   equalData(makeGameData(state).parts.toy, []);
+});
+
+function paintAll(state, category, cells) {
+  for (const [x, y] of cells) state.parts[category].add(`${x},${y}`);
+}
+
+test('fill stops at cells painted a different colour', () => {
+  const { createDefaultState, floodFill } = logic();
+  const state = createDefaultState();
+  state.canvas.cellSize = 4; // 40 x 60 grid
+  paintAll(state, 'walls', [[0, 1], [1, 1], [2, 1], [2, 0]]); // encloses (0,0),(1,0)
+  assert.equal(floodFill(state, 'bumpers', { x: 0, y: 0 }), true);
+  equalData([...state.parts.bumpers].sort(), ['0,0', '1,0']);
+  assert.equal(state.parts.walls.size, 4);
+});
+
+test('fill recolours a connected painted block only', () => {
+  const { createDefaultState, floodFill } = logic();
+  const state = createDefaultState();
+  paintAll(state, 'walls', [[5, 5], [6, 5], [6, 6], [9, 9]]);
+  floodFill(state, 'rails', { x: 5, y: 5 });
+  equalData([...state.parts.rails].sort(), ['5,5', '6,5', '6,6']);
+  equalData([...state.parts.walls], ['9,9']);
+});
+
+test('fill on an empty grid covers every cell and is a no-op when repeated', () => {
+  const { createDefaultState, floodFill } = logic();
+  const state = createDefaultState();
+  floodFill(state, 'targets', { x: 10, y: 10 });
+  assert.equal(state.parts.targets.size, 80 * 120);
+  assert.equal(floodFill(state, 'targets', { x: 0, y: 0 }), false);
+  assert.equal(state.history.length, 1);
+});
+
+test('one undo reverts an entire fill', () => {
+  const { createDefaultState, floodFill, undo, redo } = logic();
+  const state = createDefaultState();
+  paintAll(state, 'walls', [[1, 1]]);
+  floodFill(state, 'bumpers', { x: 0, y: 0 });
+  undo(state);
+  assert.equal(state.parts.bumpers.size, 0);
+  equalData([...state.parts.walls], ['1,1']);
+  redo(state);
+  assert.equal(state.parts.bumpers.size, 80 * 120 - 1);
 });
